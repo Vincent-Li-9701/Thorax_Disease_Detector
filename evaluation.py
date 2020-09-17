@@ -1,5 +1,8 @@
 from CNN_Detector import *
 from xray_dataloader import *
+import torchvision
+from torchvision import transforms
+
 
 def helper(model, test_loader):
   torch.cuda.empty_cache()
@@ -40,9 +43,8 @@ def visualize(weight, filename):
 if __name__ == "__main__":
     batch_size = 16         
     seed = np.random.seed(1) 
-    p_test = 1             
 
-    transform_base = transforms.Compose([transforms.Resize([512, 512]), transforms.ToTensor()])
+    transform_base = transforms.Compose([transforms.ToTensor()])
     extras = {"num_workers": 1, "pin_memory": True}
     
     image_dir = "./datasets/images_test/"

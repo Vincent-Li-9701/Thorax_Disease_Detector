@@ -1,30 +1,14 @@
+import numpy as np
+from config import *
 from CNN_Detector import *
 from xray_dataloader import create_3_split_loaders 
+import torchvision
+from torchvision import transforms
 
 
 def main(): 
-  # Setup: initialize the hyperparameters/variables
-  num_epochs = 6           # Number of full passes through the dataset
-  K = 3                 # Number of folds
-  batch_size = 16          # Number of samples in each minibatch
-  learning_rate = 0.001
-  weight_decay = 0.8
-  seed = np.random.seed(1) # Seed the random number generator for reproducibility
-  p_test = 0.0             # Percent of the overall dataset to reserve for testing
-
-  # train, validation, testing parameters
-  N = 50 # validate every N train batch
-  N_train = 100000
-  N_valid = 500
-  N_test = 100000
-  N_stop = 3 # stop if the model doesn't make new score in N validation trials
-  N_actual_trained = 0 # number of minibatch actually trained before stopping
     
-  # data paths
-  image_dir = "./datasets/images/" 
-  image_info = "./datasets/Data_Entry_2017.csv"
-
-
+  seed = np.random.seed(1) # Seed the random number generator for reproducibility
   transform = transforms.Compose([transforms.ToTensor()])
   # Check if your system supports CUDA
   use_cuda = torch.cuda.is_available()
@@ -41,7 +25,7 @@ def main():
 
   # Setup the training, validation, and testing dataloaders
   loaders, _ = create_3_split_loaders(
-      batch_size, seed, transform=transform, p_test=p_test,shuffle=True, 
+      batch_size, seed, transform=transform, p_test=0, shuffle=True, 
       show_sample=False, extras=extras, image_dir=image_dir, image_info=image_info)
 
   # Instantiate a ExperimentOneCNN to run on the GPU or CPU based on CUDA support
@@ -81,11 +65,6 @@ def main():
         for index in train_loaders:
             for minibatch_count, (images, labels) in enumerate(loaders[index], 0):
 
-              if minibatch_count > N_train:
-                break
-
-              N_actual_trained += 1
-
               # Put the minibatch data in CUDA Tensors and run on the GPU if supported
               images, labels = images.to(computing_device), labels.to(computing_device)
 
@@ -98,15 +77,15 @@ def main():
               criterion = nn.BCEWithLogitsLoss(pos_weight= calc_loss_weights(labels)) # Combine the last logistic layer with fully connected layer
               loss = criterion(outputs, labels.type(torch.cuda.FloatTensor))
 
-              prediction = torch.round(torch.sigmoid(outputs))
+              train_predictions = torch.round(torch.sigmoid(outputs))
               #prediction = torch.round(outputs)
-              result = prediction == labels
+              result = train_predictions == labels
               
               TP, TN, FP, FN = 0, 0, 0, 0
-              TP += torch.sum((labels == 1) * (prediction == 1)).item()
-              TN += torch.sum((labels == 0) * (prediction == 0)).item()
-              FP += torch.sum((labels == 0) * (prediction == 1)).item()
-              FN += torch.sum((labels == 1) * (prediction == 0)).item()
+              TP += torch.sum((labels == 1) * (train_predictions == 1)).item()
+              TN += torch.sum((labels == 0) * (train_predictions == 0)).item()
+              FP += torch.sum((labels == 0) * (train_predictions == 1)).item()
+              FN += torch.sum((labels == 1) * (train_predictions == 0)).item()
 
 
               if((TP + FP) != 0 and (TP + FN) != 0):
@@ -155,16 +134,12 @@ def main():
                   # Calculate Validation Loss and Accuracy
                   for valid_minibatch_count, (images, labels) in enumerate(val_loader, 0):
 
-                    if valid_minibatch_count >= N_valid:
-                      break              
-
-
                     # Perform the forward pass through the network and compute the loss on validation set
                     images, labels = images.to(computing_device), labels.to(computing_device)
                     outputs = model(images)
 
-                    predictions = torch.round(torch.sigmoid(outputs))
-                    result = prediction == labels
+                    valid_predictions = torch.round(torch.sigmoid(outputs))
+                    result = valid_predictions == labels
                     result = result.type(torch.FloatTensor)
                     accuracy = torch.sum(result) / (result.size()[0] * result.size()[1])
                     total_valid_acc.append(accuracy.item())
@@ -175,8 +150,8 @@ def main():
                     N_minibatch_valid_loss += loss
 
                 # record the loss
-                N_minibatch_valid_loss /= N_valid
-                N_minibatch_valid_acc /= N_valid
+                N_minibatch_valid_loss /= valid_minibatch_count
+                N_minibatch_valid_acc /= valid_minibatch_count
                 avg_minibatch_valid_loss.append(N_minibatch_valid_loss)
                 avg_minibatch_valid_acc.append(N_minibatch_valid_acc)
 
@@ -208,6 +183,18 @@ def main():
 
 
 def calc_loss_weights(labels):
+    """ A function used to calculate weights for BCE loss fucntion
+
+    Params:
+        -------
+        - labeles: The matrix of the labels mini_batch_size * number_of_classes
+
+    Returns:
+        --------
+        - weights: The weight vector for all classes
+    
+    """
+
     weights = torch.zeros([1, len(labels[1])]).type(torch.cuda.FloatTensor)
     labels_counts = torch.sum(labels, dim = 0) #the dimension should be 1 * label_dim
     total_counts = torch.sum(labels_counts) # the number of diseases occur in this batch

@@ -39,7 +39,7 @@ class ChestXrayDataset(Dataset):
     The expected dataset is stored in the "/datasets/ChestXray-NIHCC/" on ieng6
     """
     
-    def __init__(self, transform=transforms.ToTensor(), color='L', image_dir, image_info):
+    def __init__(self, transform=transforms.ToTensor(), color='L', image_dir='', image_info=''):
         """
         Args:
         -----
@@ -133,7 +133,7 @@ class ChestXrayDataset(Dataset):
     
 def create_3_split_loaders(batch_size, seed, transform=transforms.ToTensor(),
                          p_test=0.2, shuffle=True, 
-                         show_sample=False, extras={}):
+                         show_sample=False, extras={}, image_dir='', image_info=''):
     """ Creates the DataLoader objects for the training, validation, and test sets. 
 
     Params:
@@ -161,7 +161,7 @@ def create_3_split_loaders(batch_size, seed, transform=transforms.ToTensor(),
     """
 
     # Get create a ChestXrayDataset object
-    dataset = ChestXrayDataset(transform)
+    dataset = ChestXrayDataset(transform=transform, image_dir=image_dir, image_info=image_info)
 
     # Dimensions and indices of training set
     dataset_size = len(dataset)

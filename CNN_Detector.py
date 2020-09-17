@@ -14,7 +14,6 @@
 # Be sure to fill in the code in the areas marked #TODO.
 ################################################################################
 
-import numpy as np
 import os
 
 # PyTorch and neural network imports
