@@ -39,7 +39,7 @@ class ChestXrayDataset(Dataset):
     The expected dataset is stored in the "/datasets/ChestXray-NIHCC/" on ieng6
     """
     
-    def __init__(self, transform=transforms.ToTensor(), color='L'):
+    def __init__(self, transform=transforms.ToTensor(), color='L', image_dir, image_info):
         """
         Args:
         -----
@@ -60,8 +60,8 @@ class ChestXrayDataset(Dataset):
         
         self.transform = transform
         self.color = color
-        self.image_dir = "/datasets/ChestXray-NIHCC/images/"
-        self.image_info = pd.read_csv("/datasets/ChestXray-NIHCC/Data_Entry_2017.csv")
+        self.image_dir = image_dir
+        self.image_info = pd.read_csv(image_info)
         self.image_filenames = self.image_info["Image Index"]
         self.labels = self.image_info["Finding Labels"]
         self.classes = {0: "Atelectasis", 1: "Cardiomegaly", 2: "Effusion", 
@@ -91,7 +91,7 @@ class ChestXrayDataset(Dataset):
         """
         
         # Compose the path to the image file from the image_dir + image_name
-        image_path = os.path.join(self.image_dir, self.image_filenames.ix[ind])
+        image_path = os.path.join(self.image_dir, self.image_filenames.iloc[ind])
         
         # Load the image
         image = Image.open(image_path).convert(mode=str(self.color))
@@ -216,88 +216,3 @@ def create_3_split_loaders(batch_size, seed, transform=transforms.ToTensor(),
     # Return the training, validation, test DataLoader objects
     return ([train_1_loader, train_2_loader, train_3_loader], test_loader)
 
-
-def create_balanced_k_fold(batch_size, seed, transform=transforms.ToTensor(),
-                         p_val=0.1, p_test=0.2, shuffle=True, 
-                         show_sample=False, extras={}):
-    
-    # Get create a ChestXrayDataset object
-    dataset = ChestXrayDataset(transform)
-
-    # Dimensions and indices of training set
-    dataset_size = len(dataset)
-    all_indices = list(range(dataset_size))
-
-    # Shuffle dataset before dividing into training & test sets
-    if shuffle:
-        np.random.seed(seed)
-        np.random.shuffle(all_indices)
-
-    image_info = pd.read_csv("/datasets/ChestXray-NIHCC/Data_Entry_2017.csv")
-    labels = image_info["Finding Labels"]
-    classes = {0: "Atelectasis", 1: "Cardiomegaly", 2: "Effusion", 
-                3: "Infiltration", 4: "Mass", 5: "Nodule", 6: "Pneumonia", 
-                7: "Pneumothorax", 8: "Consolidation", 9: "Edema", 
-                10: "Emphysema", 11: "Fibrosis", 
-                12: "Pleural_Thickening", 13: "Hernia"}
-    
-    indices_per_class = [[] for i in range(15)]
-    for index in all_indices:
-        no_finding = True
-        for key, value in classes.items():
-            if value in labels[index]:
-                no_finding = False
-                indices_per_class[key].append(index)
-        if no_finding:
-          indices_per_class[14].append(index)
-
-    print("extending class..")
-    for i in range(len(indices_per_class)):
-      while len(indices_per_class[i]) < 60000 * 0.5:
-        indices_per_class[i] = indices_per_class[i] * int(60000 / len(indices_per_class[i]))
-      print(i, len(indices_per_class[i]))
-
-    balanced_all_indices = []
-    for item in indices_per_class:
-      balanced_all_indices.extend(item)
-
-    np.random.shuffle(balanced_all_indices)
-    one_third = int(len(balanced_all_indices) / 3)
-    two_third = int(len(balanced_all_indices) * 2 / 3)
-    test_segment = int(len(balanced_all_indices) * p_test)
-    train_ind, test_ind = balanced_all_indices[test_segment:], balanced_all_indices[:test_segment]
-    train_ind_1 = train_ind[:one_third]
-    train_ind_2 = train_ind[one_third:two_third]
-    train_ind_3 = train_ind[two_third:]
-
-    # Use the SubsetRandomSampler as the iterator for each subset
-    sample_train_1 = SubsetRandomSampler(train_ind_1)
-    sample_train_2 = SubsetRandomSampler(train_ind_2)
-    sample_train_3 = SubsetRandomSampler(train_ind_3)
-    sample_test = SubsetRandomSampler(test_ind)
-    
-    num_workers = 0
-    pin_memory = False
-    # If CUDA is available
-    if extras:
-        num_workers = extras["num_workers"]
-        pin_memory = extras["pin_memory"]
-        
-    # Define the training, test, & validation DataLoaders
-    train_1_loader = DataLoader(dataset, batch_size=batch_size, 
-                              sampler=sample_train_1, num_workers=num_workers, 
-                              pin_memory=pin_memory)
-
-    train_2_loader = DataLoader(dataset, batch_size=batch_size, 
-                              sampler=sample_train_2, num_workers=num_workers, 
-                              pin_memory=pin_memory)
-
-    train_3_loader = DataLoader(dataset, batch_size=batch_size, 
-                              sampler=sample_train_3, num_workers=num_workers, 
-                              pin_memory=pin_memory)
-
-    test_loader = DataLoader(dataset, batch_size=batch_size, 
-                             sampler=sample_test, num_workers=num_workers, 
-                              pin_memory=pin_memory)
-
-    return [train_1_loader, train_2_loader, train_3_loader], test_loader

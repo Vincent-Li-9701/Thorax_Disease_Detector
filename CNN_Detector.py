@@ -3,7 +3,7 @@
 # Fall 2018
 # Code author: Songlin Li
 #
-# Filename: experimentOne_cnn.py
+# Filename: CNN_Detector.py
 # 
 # Description: 
 # 
@@ -29,7 +29,7 @@ import torch.optim as optim
 import torchvision
 from torchvision import transforms, utils
 
-class ExperimentOneCNN(nn.Module):
+class CNN_Detector(nn.Module):
     """ A basic convolutional neural network model for baseline comparison. 
     
     Consists of three Conv2d layers, followed by one 4x4 max-pooling layer, 
@@ -43,7 +43,7 @@ class ExperimentOneCNN(nn.Module):
     """
     
     def __init__(self):
-        super(ExperimentOneCNN, self).__init__()
+        super(CNN_Detector, self).__init__()
         
         # conv1: 1 input channel, 6 output channels, [8x8] kernel size
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=6, kernel_size=8)

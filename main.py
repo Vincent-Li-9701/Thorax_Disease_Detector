@@ -10,7 +10,7 @@ def main():
   learning_rate = 0.001
   weight_decay = 0.8
   seed = np.random.seed(1) # Seed the random number generator for reproducibility
-  p_test = 0.2             # Percent of the overall dataset to reserve for testing
+  p_test = 0.0             # Percent of the overall dataset to reserve for testing
 
   # train, validation, testing parameters
   N = 50 # validate every N train batch
@@ -20,6 +20,11 @@ def main():
   N_stop = 3 # stop if the model doesn't make new score in N validation trials
   N_actual_trained = 0 # number of minibatch actually trained before stopping
     
+  # data paths
+  image_dir = "./datasets/images/" 
+  image_info = "./datasets/Data_Entry_2017.csv"
+
+
   transform = transforms.Compose([transforms.ToTensor()])
   # Check if your system supports CUDA
   use_cuda = torch.cuda.is_available()
@@ -35,8 +40,9 @@ def main():
     print("CUDA NOT supported")
 
   # Setup the training, validation, and testing dataloaders
-  loaders, test_loader = create_3_split_loaders(
-      batch_size, seed, transform=transform, p_test=p_test,shuffle=True, show_sample=False, extras=extras)
+  loaders, _ = create_3_split_loaders(
+      batch_size, seed, transform=transform, p_test=p_test,shuffle=True, 
+      show_sample=False, extras=extras, image_dir=image_dir, image_info=image_info)
 
   # Instantiate a ExperimentOneCNN to run on the GPU or CPU based on CUDA support
   model = CNN_Detector()
@@ -202,12 +208,13 @@ def main():
 
 
 def calc_loss_weights(labels):
-    weights = torch.zeros([1, len(labels[0])]).type(torch.cuda.FloatTensor)
+    weights = torch.zeros([1, len(labels[1])]).type(torch.cuda.FloatTensor)
     labels_counts = torch.sum(labels, dim = 0) #the dimension should be 1 * label_dim
-    total_counts = torch.sum(labels) # the number of diseases occur in this batch
+    total_counts = torch.sum(labels_counts) # the number of diseases occur in this batch
 
-    for i in range(labels_counts):
-        weights[i] = labels_counts[i] / total_counts
+    for i in range(labels_counts.shape[0]): #this should be equal to 14 (numbers of classes
+        if labels_counts[i] != 0:
+            weights[0][i] = total_counts / labels_counts[i]
     
     return weights
 

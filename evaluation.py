@@ -36,21 +36,27 @@ def visualize(weight, filename):
   img = Image.fromarray(result, 'L')
   img.save(filename)
 
-batch_size = 16         
-seed = np.random.seed(1) 
-p_test = 0.2             
-transform_base = transforms.Compose([transforms.Resize([512, 512]), transforms.ToTensor()])
-extras = {"num_workers": 1, "pin_memory": True}
 
-baseline = BasicCNN()
+if __name__ == "__main__":
+    batch_size = 16         
+    seed = np.random.seed(1) 
+    p_test = 1             
 
-base_state = torch.load('baseline_state')
-baseline.load_state_dict(base_state)
+    transform_base = transforms.Compose([transforms.Resize([512, 512]), transforms.ToTensor()])
+    extras = {"num_workers": 1, "pin_memory": True}
+    
+    image_dir = "./datasets/images_test/"
+    image_info = "./datasets/Data_Entry_2017.csv"
 
-_, test_loader_base = create_3_split_loaders(batch_size, seed, transform=transform_base,
+    baseline = CNN_Detector()
+
+    base_state = torch.load('baseline_state')
+    baseline.load_state_dict(base_state)
+
+    _, test_loader_base = create_3_split_loaders(batch_size, seed, transform=transform_base,
                                         p_test=p_test,
                                         shuffle=True, show_sample=False,
-                                        extras=extras)
+                                        extras=extras, image_dir=image_dir, image_info=image_info)
 
-print("baseline:")
-helper(baseline, test_loader_base)
+    print("baseline:")
+    helper(baseline, test_loader_base)
